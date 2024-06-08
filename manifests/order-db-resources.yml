@@ -1,0 +1,86 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: order-db-pvc
+spec:
+  resources:
+    requests:
+      storage: 1Gi
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: standard-rwo
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: order-db-configmap
+data:
+  init.sql: |
+    CREATE DATABASE IF NOT EXISTS `order-db`;
+    use `order-db`;
+    DROP TABLE IF EXISTS `order`;
+    DROP TABLE IF EXISTS `order_item`;
+    CREATE TABLE `order` (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      user_id INT NOT NULL,
+      `status` INT NOT NULL,
+      created_at TIMESTAMP NOT NULL
+    );
+    CREATE TABLE order_item (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      order_id INT NOT NULL,
+      item_id VARCHAR(255) NOT NULL,
+      FOREIGN KEY (order_id) REFERENCES `order`(id) ON DELETE CASCADE
+    );
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: order-db-svc
+spec:
+  type: ClusterIP
+  selector:
+    app: order-db
+  ports:
+    - port: 3308
+      targetPort: 3308
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: order-db-deployment
+  labels:
+    app: order-db
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: order-db
+  template:
+    metadata:
+      labels:
+        app: order-db
+    spec:
+      containers:
+        - name: order-db
+          image: mysql:8.0
+          ports:
+            - containerPort: 3308
+          # TODO: Move env variables to a Secret and ConfigMap object
+          env:
+            - name: MYSQL_ROOT_PASSWORD
+              value: "root"
+            - name: MYSQL_TCP_PORT
+              value: "3308"
+          volumeMounts:
+            - name: order-db-initdb
+              mountPath: /docker-entrypoint-initdb.d
+            - name: order-db-persistent-storage
+              mountPath: /var/lib/mysql
+      volumes:
+        - name: order-db-initdb
+          configMap:
+            name: order-db-configmap
+        - name: order-db-persistent-storage
+          persistentVolumeClaim:
+            claimName: order-db-pvc

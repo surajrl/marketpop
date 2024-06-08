@@ -1,0 +1,46 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: item-service-deployment
+  labels:
+    app: item-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: item-service
+  template:
+    metadata:
+      labels:
+        app: item-service
+    spec:
+      containers:
+        - name: item-service
+          image: surajrl/item-service:<VERSION>
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8001
+          # TODO: Move env variables to a Secret and ConfigMap object
+          env:
+            - name: MONGODB_USER
+              value: "root"
+            - name: MONGODB_PASSWORD
+              value: "root"
+            - name: MONGODB_HOST
+              value: "item-db-svc"
+            - name: MONGODB_PORT
+              value: "27017"
+            - name: MONGODB_DB
+              value: "item-db"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: item-service-svc
+spec:
+  type: ClusterIP
+  selector:
+    app: item-service
+  ports:
+    - port: 8001
+      targetPort: 8001

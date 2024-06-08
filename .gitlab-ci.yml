@@ -1,0 +1,69 @@
+variables:
+  GC_PROJECT_ID: cloud-native-web-app-project
+  GKE_CLUSTER_NAME: cloud-native-web-app-cluster
+  GKE_CLUSTER_ZONE: us-central1-c
+
+stages:
+  - test
+  - build
+  - deploy
+
+test-job:
+  stage: test
+  rules:
+    - when: always
+  script:
+    - echo "Running tests..."
+
+build-job:
+  stage: build
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+  image: docker:stable
+  variables:
+    DOCKER_TLS_CERTDIR: ""
+    DOCKER_HOST: "tcp://docker:2375"
+  services:
+    - docker:dind
+  before_script:
+    - docker info
+    # Authenticate to Docker Hub
+    - docker login -u $REGISTRY_USERNAME -p $REGISTRY_PASSWORD
+  script:
+    # Copy JWT private key to auth service directory
+    - echo "$JWT_PRIVATE_KEY" > jwt-private-key
+    - cp ./jwt-private-key ./backend/auth-service/jwt-private-key
+
+    # Build images using Docker client
+    - docker build -t $REGISTRY_USERNAME/frontend:$CI_COMMIT_SHORT_SHA ./frontend
+    - docker build -t $REGISTRY_USERNAME/auth-service:$CI_COMMIT_SHORT_SHA ./backend/auth-service
+    - docker build -t $REGISTRY_USERNAME/item-service:$CI_COMMIT_SHORT_SHA ./backend/item-service
+    - docker build -t $REGISTRY_USERNAME/cart-service:$CI_COMMIT_SHORT_SHA ./backend/cart-service
+    - docker build -t $REGISTRY_USERNAME/order-service:$CI_COMMIT_SHORT_SHA ./backend/order-service
+    - docker build -t $REGISTRY_USERNAME/message-service:$CI_COMMIT_SHORT_SHA ./backend/message-service
+
+    # Push images to Docker Hub
+    - docker push $REGISTRY_USERNAME/frontend:$CI_COMMIT_SHORT_SHA
+    - docker push $REGISTRY_USERNAME/auth-service:$CI_COMMIT_SHORT_SHA
+    - docker push $REGISTRY_USERNAME/item-service:$CI_COMMIT_SHORT_SHA
+    - docker push $REGISTRY_USERNAME/cart-service:$CI_COMMIT_SHORT_SHA
+    - docker push $REGISTRY_USERNAME/order-service:$CI_COMMIT_SHORT_SHA
+    - docker push $REGISTRY_USERNAME/message-service:$CI_COMMIT_SHORT_SHA
+
+deploy-job:
+  stage: deploy
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+  image: google/cloud-sdk
+  before_script:
+    - echo "$SERVICE_ACCOUNT_KEY" > key.json
+    # Authenticate using a service account key to use gcloud CLI
+    # See: https://cloud.google.com/sdk/docs/authorizing#key
+    - gcloud auth login --cred-file=key.json
+  script:
+    # Connect to GKE cluster
+    - gcloud container clusters get-credentials $GKE_CLUSTER_NAME --zone $GKE_CLUSTER_ZONE --project $GC_PROJECT_ID
+    # Add the current commit SHA to the Kubernetes manifests image versions
+    - find ./manifests -type f -name '*.yml' -exec sed -i "s/<VERSION>/${CI_COMMIT_SHORT_SHA}/g" {} +
+    # Apply Kubernetes manifests
+    - kubectl apply -f ./manifests

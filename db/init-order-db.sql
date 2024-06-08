@@ -1,0 +1,16 @@
+CREATE DATABASE IF NOT EXISTS `order-db`;
+use `order-db`;
+DROP TABLE IF EXISTS `order`;
+DROP TABLE IF EXISTS `order_item`;
+CREATE TABLE `order` (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  user_id INT NOT NULL,
+  `status` INT NOT NULL,
+  created_at TIMESTAMP NOT NULL
+);
+CREATE TABLE order_item (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  order_id INT NOT NULL,
+  item_id VARCHAR(255) NOT NULL,
+  FOREIGN KEY (order_id) REFERENCES `order`(id) ON DELETE CASCADE
+);

@@ -1,0 +1,44 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: auth-service-deployment
+  labels:
+    app: auth-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: auth-service
+  template:
+    metadata:
+      labels:
+        app: auth-service
+    spec:
+      containers:
+        - name: auth-service
+          image: surajrl/auth-service:<VERSION>
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8000
+          # TODO: Move env variables to a Secret and ConfigMap object
+          env:
+            - name: MYSQL_ROOT_PASSWORD
+              value: "root"
+            - name: MYSQL_HOST
+              value: "user-db-svc"
+            - name: MYSQL_PORT
+              value: "3306"
+            - name: MYSQL_DATABASE
+              value: "user-db"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: auth-service-svc
+spec:
+  type: ClusterIP
+  selector:
+    app: auth-service
+  ports:
+    - port: 8000
+      targetPort: 8000

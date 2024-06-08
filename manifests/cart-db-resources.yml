@@ -1,0 +1,85 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: cart-db-pvc
+spec:
+  resources:
+    requests:
+      storage: 1Gi
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: standard-rwo
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cart-db-configmap
+data:
+  init.sql: |
+    CREATE DATABASE IF NOT EXISTS `cart-db`;
+    USE `cart-db`;
+    DROP TABLE IF EXISTS `cart`;
+    DROP TABLE IF EXISTS `cart_item`;
+    CREATE TABLE cart (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      user_id INT UNIQUE NOT NULL,
+      created_at TIMESTAMP NOT NULL
+    );
+    CREATE TABLE cart_item (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      cart_id INT NOT NULL,
+      item_id VARCHAR(255) NOT NULL,
+      FOREIGN KEY (cart_id) REFERENCES cart(id) ON DELETE CASCADE
+    );
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: cart-db-svc
+spec:
+  type: ClusterIP
+  selector:
+    app: cart-db
+  ports:
+    - port: 3307
+      targetPort: 3307
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cart-db-deployment
+  labels:
+    app: cart-db
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: cart-db
+  template:
+    metadata:
+      labels:
+        app: cart-db
+    spec:
+      containers:
+        - name: cart-db
+          image: mysql:8.0
+          ports:
+            - containerPort: 3307
+          # TODO: Move env variables to a Secret and ConfigMap object
+          env:
+            - name: MYSQL_ROOT_PASSWORD
+              value: "root"
+            - name: MYSQL_TCP_PORT
+              value: "3307"
+          volumeMounts:
+            - name: cart-db-initdb
+              mountPath: /docker-entrypoint-initdb.d
+            - name: cart-db-persistent-storage
+              mountPath: /var/lib/mysql
+      volumes:
+        - name: cart-db-initdb
+          configMap:
+            name: cart-db-configmap
+        - name: cart-db-persistent-storage
+          persistentVolumeClaim:
+            claimName: cart-db-pvc

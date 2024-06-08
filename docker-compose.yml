@@ -1,0 +1,199 @@
+services:
+  stripe-cli:
+    image: stripe/stripe-cli
+    command: "listen --api-key sk_test_51KEePOIVoc0L94oGyUyJ2xfiDsTITd9qDB9nqejJdQ9bXjimtnMnnhsa71AG8NU3eIr6xxCCy6IxcjcnNqyMonTQ00M9G3kmCI --forward-to http://order-service-svc:8003/order/webhook"
+    networks:
+      - mynetwork
+
+  # Production
+  frontend-svc:
+    build: ./frontend
+    environment:
+      - NODE_ENV=production
+    ports:
+      - 3000:3000
+    networks:
+      - mynetwork
+
+  # # Development
+  # frontend-svc:
+  #   build:
+  #     context: ./frontend
+  #     target: dev
+  #   restart: always
+  #   command: npm run dev
+  #   ports:
+  #     - 3000:3000
+  #   environment:
+  #     - NOD_ENV=Development
+  #     - WATCHPACK_POLLING=true
+  #   networks:
+  #     - mynetwork
+
+  auth-service-svc:
+    build: ./backend/auth-service
+    restart: always
+    ports:
+      - 8000:8000
+    environment:
+      - MYSQL_ROOT_PASSWORD=root
+      - MYSQL_HOST=user-db-svc
+      - MYSQL_PORT=3306
+      - MYSQL_DATABASE=user-db
+    networks:
+      - mynetwork    
+    depends_on:
+      - user-db-svc
+
+  item-service-svc:
+    build: ./backend/item-service
+    restart: always
+    ports:
+      - 8001:8001
+    environment:
+      - MONGODB_USER=root
+      - MONGODB_PASSWORD=root
+      - MONGODB_HOST=item-db-svc
+      - MONGODB_PORT=27017
+      - MONGODB_DB=item-db
+    networks:
+      - mynetwork
+    depends_on:
+      - item-db-svc
+      - kafka-svc
+  
+  cart-service-svc:
+    build: ./backend/cart-service
+    restart: always
+    environment:
+      - MYSQL_ROOT_PASSWORD=root
+      - MYSQL_HOST=cart-db-svc
+      - MYSQL_PORT=3307
+      - MYSQL_DATABASE=cart-db
+    ports:
+      - 8002:8002
+    networks:
+      - mynetwork
+    depends_on:
+      - cart-db-svc
+      - kafka-svc
+
+  order-service-svc:
+    build: ./backend/order-service
+    restart: always
+    environment:
+      - MYSQL_ROOT_PASSWORD=root
+      - MYSQL_HOST=order-db-svc
+      - MYSQL_PORT=3308
+      - MYSQL_DATABASE=order-db
+      - STRIPE_API_KEY_TESTMODE=sk_test_51KEePOIVoc0L94oGyUyJ2xfiDsTITd9qDB9nqejJdQ9bXjimtnMnnhsa71AG8NU3eIr6xxCCy6IxcjcnNqyMonTQ00M9G3kmCI
+      - STRIPE_API_KEY_LIVEMODE=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
+      - STRIPE_ENDPOINT_SECRET=whsec_ac347ce0b13da56ffe90b5e9f8bdd366574f94a1961d94ed6da243a277811fcb
+      - FRONTEND_URL=http://localhost:3000
+    ports:
+      - 8003:8003
+    networks:
+      - mynetwork
+    depends_on:
+      - order-db-svc
+      - kafka-svc
+  
+  message-service-svc:
+    build: ./backend/message-service
+    restart: always
+    environment:
+      - MONGO_URL=mongodb+srv://nbhandari1:Hello@chat.lrbggsa.mongodb.net/?retryWrites=true&w=majority
+    ports:
+      - 4000:4000
+    networks:
+      - mynetwork
+
+  zookeeper-svc:
+    image: confluentinc/cp-zookeeper:7.4.4
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - 22181:2181
+    networks:
+      - mynetwork
+
+  kafka-svc:
+    image: confluentinc/cp-kafka:7.4.4
+    ports:
+      - 29092:29092
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper-svc:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka-svc:9092,PLAINTEXT_HOST://localhost:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+    networks:
+      - mynetwork
+    depends_on:
+      - zookeeper-svc
+
+  user-db-svc:
+    image: mysql:8.0
+    restart: always
+    environment:
+      - MYSQL_ROOT_PASSWORD=root
+    ports:
+      - 3306:3306
+    volumes:
+      - ./db/init-user-db.sql:/docker-entrypoint-initdb.d/init-user-db.sql
+      - user-db:/var/lib/mysql
+    networks:
+      - mynetwork
+        
+  cart-db-svc:
+    image: mysql:8.0
+    restart: always
+    environment:
+      - MYSQL_ROOT_PASSWORD=root
+      - MYSQL_TCP_PORT=3307
+    ports:
+      - 3307:3307
+    volumes:
+      - ./db/init-cart-db.sql:/docker-entrypoint-initdb.d/init-cart-db.sql
+      - cart-db:/var/lib/mysql
+    networks:
+      - mynetwork
+    
+  order-db-svc:
+    image: mysql:8.0
+    restart: always
+    ports:
+      - 3308:3308
+    environment:
+      - MYSQL_ROOT_PASSWORD=root
+      - MYSQL_TCP_PORT=3308
+    volumes:
+      - ./db/init-order-db.sql:/docker-entrypoint-initdb.d/init-order-db.sql
+      - order-db:/var/lib/mysql
+    networks:
+      - mynetwork
+    
+  item-db-svc:
+    image: mongo:7.0
+    restart: always
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=root
+      - MONGO_INITDB_ROOT_PASSWORD=root
+    ports:
+      - 27017:27017
+    volumes:
+      - item-db:/data/db
+    networks:
+      - mynetwork
+
+volumes:
+  user-db:
+  item-db:
+  cart-db:
+  order-db:
+  kafka-data:
+
+networks:
+  mynetwork:

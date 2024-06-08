@@ -1,0 +1,80 @@
+apiVersion: cloud.google.com/v1
+kind: BackendConfig
+metadata:
+  name: order-service-health-check
+spec:
+  healthCheck:
+    checkIntervalSec: 30 # Interval between health checks
+    timeoutSec: 5 # Timeout for each health check
+    healthyThreshold: 2 # Number of successful checks to mark as healthy
+    unhealthyThreshold: 2 # Number of failed checks to mark as unhealthy
+    type: HTTP # Health check type (HTTP, HTTPS, or TCP)
+    requestPath: /order/health # Path to be checked
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: order-service-ingress
+  annotations:
+    kubernetes.io/ingress.global-static-ip-name: stripe-webhook-endpoint-ip
+    # Link the service to the BackendConfig for health checks
+    cloud.google.com/backend-config: '{"default": "order-service-health-check"}'
+spec:
+  defaultBackend:
+    service:
+      name: order-service-svc
+      port:
+        number: 8003
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: order-service-svc
+spec:
+  type: NodePort
+  selector:
+    app: order-service
+  ports:
+    - port: 8003
+      targetPort: 8003
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: order-service-deployment
+  labels:
+    app: order-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: order-service
+  template:
+    metadata:
+      labels:
+        app: order-service
+    spec:
+      containers:
+        - name: order-service
+          image: surajrl/order-service:<VERSION>
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8003
+          # TODO: Move env variables to a Secret and ConfigMap object
+          env:
+            - name: MYSQL_ROOT_PASSWORD
+              value: "root"
+            - name: MYSQL_HOST
+              value: "order-db-svc"
+            - name: MYSQL_PORT
+              value: "3308"
+            - name: MYSQL_DATABASE
+              value: "order-db"
+            - name: STRIPE_API_KEY_TESTMODE
+              value: "sk_test_51KEePOIVoc0L94oGyUyJ2xfiDsTITd9qDB9nqejJdQ9bXjimtnMnnhsa71AG8NU3eIr6xxCCy6IxcjcnNqyMonTQ00M9G3kmCI"
+            - name: STRIPE_API_KEY_LIVEMODE
+              value: "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"
+            - name: STRIPE_ENDPOINT_SECRET
+              value: "whsec_K6SNWMNiwTEpH1Qiu2RENU4QlPUN1mNK"
+            - name: FRONTEND_URL
+              value: "http://35.190.121.173:80"

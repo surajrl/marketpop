@@ -1,0 +1,25 @@
+POST http://127.0.0.1:8001/item
+Authorization: Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9.eyJ1c2VyIjp7ImlkIjoxLCJ1c2VybmFtZSI6InN1cmFqIiwiZW1haWwiOiJzdXJhai5yb2hpcmEwQGdtYWlsLmNvbSIsImNyZWF0ZWRfYXQiOiIyMDI0LTA1LTAzVDEwOjU1OjU2LjYzNTQxMyIsInVwZGF0ZWRfYXQiOm51bGx9LCJpYXQiOjE3MTQ3MzM4OTB9.bg__TD0TsrKM7NSXlWJG-wftaP42TFDCj-gkhDiZzVAIC-7ae3Ptf1ie0TyTmsSK_uasR2ciG_C7ZmLGTgR3vexc5AprWFDmoTtOPrJ00RWumk2bJ7QPKhOfU9MSuDrFp5rWjvLtU0zbqSfQpuR29piKTwSdrWBrFPxlToSnZka-gVI6yto1MmQatKXhMkPQGHSm9fnRObuxf2zlEZCLmOTLmxulEWgkMZQm8XojeN6so1PBxnCu6KyMz_t84Va9WOhBDc8P_LBLVhW5mgs--_lUjyZWKiKlO8m6SWt4IYd0ClmGPtj8myLKS9PeA9schBAQ5kMuIZ6xBB4mOQ17Qj8oWVbg4mBLaoJ7po9klr74ZLHTA8Mv9oM5W6r35fKQAFdllHZFBGCSiiXrb2YVRD0h0kVmKGe8XbqCGt9NFelVtx32Yy6Bt7vRbe6ISw4R37y2sK5_BJ1sB89NI89ljyyhCUMFyQoNWrl4WumBZ1mE0bDOUbu0DfXT5mbVJwF91GsL8nzLT24SrEIbMkUxNepTuBhrkxIYbpO_lmi85maXeRsLnnmKUYJ3v6NaSo9Js49crvTSMAqEn6KeF5t8sRdJJsumMrMYRLW9RY6qiQF7g0i-T-0h5vbLqmmh2wAMCQdLVgI5vw8VNdtSDebylPKY2-d-8T3vAHxGYBmoY5k
+Content-Type: multipart/form-data; boundary=---BOUNDARY
+
+---BOUNDARY
+Content-Disposition: form-data; name="image"; filename="test-image.png"
+Content-Type: image/png
+
+< C:/Users/Suraj/Desktop/test-image.png
+---BOUNDARY
+Content-Disposition: form-data; name="title"
+
+Test item 1
+---BOUNDARY
+Content-Disposition: form-data; name="description"
+
+This is a test item
+---BOUNDARY
+Content-Disposition: form-data; name="price"
+
+100
+---BOUNDARY--
+
+###
+GET http://127.0.0.1:8001/item/items
