@@ -1,4 +1,4 @@
-# MarketPOP - Cloud-native Web APp
+# MarketPOP - Cloud-native Web App
 
 Welcome to **MarketPOP**! This project is a cloud-native web app for an online second-hand marketplace. This README provides instructions on how to set up and run the app using Docker.
 
